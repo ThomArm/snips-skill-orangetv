@@ -1,0 +1,25 @@
+package_name: orange_tv
+class_name: OrangeTV
+description: An Orange TV skill for snips
+parameters: ["hostname", "orangetv_ids"]
+intents:
+  - intent: orangetvTurnOff
+    action: |
+    	{%
+    	if len(snips.intent.house_room):
+    	  for room in snips.intent.house_room:
+    		snips.skill.orangetv_off(room)
+    	else:
+    	  snips.skill.orangetv_off(None)
+    	%}
+
+  - intent: orangetvTurnOn
+    action: |
+      {%
+        if len(snips.intent.house_room):
+      	  for room in snips.intent.house_room:
+      	    snips.skill.orangetv_on(room)
+        else:
+      	  snips.skill.orangetv_on(None)
+      	%}
+  -intent: requestChannelOrangeTV
