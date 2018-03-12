@@ -1,2 +1,2 @@
-# snips-skeleton-skill
-A skeleton Snips skill
+# Snips-Skill-OrangeTV
+A Snips Skill for OrangeTV

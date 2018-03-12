@@ -1,10 +1,10 @@
 from setuptools import setup
 
 setup(
-    name='myskill',
+    name='OrangeTV-Skill',
     version='0.0.1',
-    description='My skill for Snips',
-    url='https://github.com/snipsco/snips-skill-skeleton',
+    description='OrangeTV Skill for Snips',
+    url='https://github.com/ThomArm/snips-skill-orangetv',
     download_url='',
     license='MIT',
     install_requires=['requests==2.6.0'],
