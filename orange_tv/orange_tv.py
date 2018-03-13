@@ -18,7 +18,7 @@ class OrangeTV:
     colormap= colors
 
     def __init__(self, hostname=None, username=None, locale=None):
-        """
+        """Initialisation
         :param hostname: hostname for some OrangeTV
         :param username: OrangeTV username
         :param light_ids: Philips Hue light IDs
@@ -36,7 +36,22 @@ class OrangeTV:
         self.groups_endpoint= url + "/groups"
         self.config_enpoint= url + "/config"
 
-        self.orangetv_from_room = self._get_rooms_orangetv()    
+        self.orangetv_from_room = self._get_rooms_orangetv() 
+
+
+    def requestChannelOrangeTV(self, color=None, location=None)
+    	"""Turn on Channel OrangeTV in [location] with [color] color."""
+    	orangetv_ids=self._get_orangetv_ids_from_room(location)
+
+    	state = {"on": True}
+    	if color != None:
+    		state.update(self._get_orangetv_saturation(color))
+
+    	self._post_state_to_ids(state, orangetv_ids)
+
+    def _get_orangetv_saturation(self, color_name):
+    	return self.colormap.get(color_name, {'orange': 0, 'sat': 0})
+    	   
 
 
     def orangetv_on(self,location=None):
