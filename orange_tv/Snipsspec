@@ -22,4 +22,4 @@ intents:
         else:
       	  snips.skill.orangetv_on(None)
       	%}
-  -intent: requestChannelOrangeTV
+  -intent: requestChannelOrangeTV	
