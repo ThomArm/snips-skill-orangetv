@@ -114,6 +114,5 @@ class OrangeTV:
 
 	if _name_=="_main_":
 		ot=OrangeTV()
-
 		ot.orangetv_on("Bedroom")
 		print ot._get_all_orangetv()

@@ -114,3 +114,4 @@ class OrangeSetup:
 
 	def _create_url(self, bridge_ip, username):
 		return 'http://{}/api/{}'.format(bridge_ip, username)
+	
