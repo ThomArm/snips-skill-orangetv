@@ -28,7 +28,7 @@ intents:
         if len(snips.intent.Channel):
           for channel in snips.intent.Channel:
             channel=channel.lower()
-            if ((channel=='tf1') or (channel=='un')or (channel=='chaine 1') or (channel=='chaine1')):
+            if ((channel=='tf1') or (channel=='un')or (channel=='1') or (channel=='chaine1')):
               snips.skill.orangetv_on_set("blue",254,"chambre")
             if ((channel=='france 2') or (channel=='deux')or (channel=='fr2') or (channel=='chaine2')):
               snips.skill.orangetv_on_set("red",254,"chambre")
