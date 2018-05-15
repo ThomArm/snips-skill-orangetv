@@ -1,6 +1,5 @@
 # -*-: coding utf-8 -*-
-""" OrangeTV Snips skill. """
-"""Programme de Test de Creation de Skill pour Snips OrangeTV"""
+""" Philips Hue skill for Snips. """
 
 import requests
 import json
@@ -8,111 +7,162 @@ import time
 import os
 import errno
 import sys
-import orange_setup
+import hue_setup
 
 from color_utils import colors
 
-class OrangeTV:
-	""" OrangeTV Snips skill. """
 
-	colormap= colors
+class OrangeTv:
+    """ Philips Hue skill for Snips. """
 
-	def __init__(self, hostname=None, username=None, locale=None):
-		"""Initialisation
-		:param hostname: hostname for some OrangeTV
-		:param username: OrangeTV username
-		:param light_ids: Philips Hue light IDs
-		"""
-		if hostname is None or username is None:
-			setup= orange_setup.OrangeSetup()	 
-			url= setup.bridge_url
-			print str(url)
-		else:
-			url='http://{}/api/{}'.format(hostname, username)
+    colormap = colors
 
-		self.orangetv_endpoint = url + "/orangetv"
-		self.groups_endpoint= url + "/groups"
-		self.config_enpoint= url + "/config"	
+    def __init__(self, hostname=None, username=None, locale=None):
+        """ Initialisation.
+        :param hostname: Philips Hue hostname
+        :param username: Philips Hue username
+        :param light_ids: Philips Hue light ids
+        """
+        if hostname is None or username is None:
+            setup = hue_setup.HueSetup()
+            url = setup.bridge_url
 
-		self.orangetv_from_room = self._get_rooms_orangetv() 
+            print str(url)
+        else:
+            url = 'http://{}/api/{}'.format(hostname, username)
+
+        self.lights_endpoint = url + "/lights"
+        self.groups_endpoint = url + "/groups"
+        self.config_endpoint = url + "/config"
+
+        self.lights_from_room = self._get_rooms_lights()
+	self.light_on_set("green",254,"chambre")
+    def orangetv_on_set(self, color=None, intensity=None, location=None):
+        """ Turn on Philips Hue lights in [location] at [intensity] with [color] color. """
+
+        light_ids = self._get_light_ids_from_room(location)
+
+        state = {"on": True}
+        if intensity != None:
+            intensity = int(intensity)
+            state.update({"bri": intensity})
+        if color != None:
+            state.update(self._get_hue_saturation(color))
+
+        self._post_state_to_ids(state, light_ids)
+
+    def orangetv_off(self, location):
+        """ Turn off all Philips Hue lights. """
+
+        self._post_state_to_ids({"on": False}, self._get_light_ids_from_room(location))
+
+    def orangetv_up(self, intensity_augmentation, location):
+        """ Increase Philips Hue lights' intensity. """
+        light_ids = self._get_light_ids_from_room(location)
+
+        lights_config = self._get_lights_config(light_ids)
+
+        for light_id in light_ids:
+            intensity = lights_config[light_id]["bri"]
+            if intensity + intensity_augmentation > 254:
+                intensity = 254
+            else:
+                intensity += intensity_augmentation
+            self._post_state({"on": True, "bri": intensity}, light_id)
+
+    def orangetv_down(self, intensity_reduction, location):
+        """ Lower Philips Hue lights' intensity. """
+        light_ids = self._get_light_ids_from_room(location)
+
+        lights_config = self._get_lights_config(light_ids)
+
+        for light_id in light_ids:
+            intensity = lights_config[light_id]["bri"]
+            if intensity < intensity_reduction:
+                intensity = 0
+            else:
+                intensity -= intensity_reduction
+            self._post_state({"bri": intensity}, light_id)
+
+    def _post_state_to_ids(self, params, light_ids):
+        """ Post a state update to specyfied Philips Hue lights. """
+        try:
+            for light_id in light_ids:
+                self._post_state(params, light_id)
+                time.sleep(0.2)
+        except Exception as e:
+            return
+
+    def _post_state(self, params, light_id):
+        """ Post a state update to a given light.
+        :param params: Philips Hue request parameters.
+        :param light_id: Philips Hue light ID.
+        """
+        if (light_id is None) or (params is None):
+            return
+
+        print("[HUE] Setting state for light " +
+              str(light_id) + ": " + str(params))
+        try:
+            url = "{}/{}/state".format(self.lights_endpoint, light_id)
+            requests.put(url, data=json.dumps(params), headers=None)
+        except:
+            print("[HUE] Request timeout. Is the Hue Bridge reachable?")
+            pass
+
+    def _get_hue_saturation(self, color_name):
+        """ Transform a color name into a dictionary represenation
+            of a color, as expected by the Philips Hue API.
+        :param color_name: A color name, e.g. "red" or "blue"
+        :return: A dictionary represenation of a color, as expected
+            by the Philips Hue API, e.g. {'hue': 65535, 'sat': 254, 'bri': 254}
+        """
+        return self.colormap.get(color_name, {'hue': 0, 'sat': 0})
+
+    def _get_lights_config(self, light_ids):
+        """ Make a get request to get infos about the current state of the given lights """
+        lights = {}
+
+        for light_id in light_ids:
+            current_config = requests.get(self.lights_endpoint + "/" + str(light_id)).json()["state"]
+            lights[light_id] = current_config
+
+        return lights
+
+    def _get_all_lights(self):
+        lights = requests.get(self.lights_endpoint).json()
+        return lights.keys()
+
+    def _get_light_ids_from_room(self, room):
+        """ Returns the list of lights in a [room] or all light_ids if [room] is None """
+
+        if room is not None:
+            room = room.lower()
+        if room is None or self.lights_from_room.get(room) is None:
+            return self._get_all_lights()
+
+        return self.lights_from_room[room]
+
+    def _get_rooms_lights(self):
+        """ Returns a dict {"room_name": {"light1", "light2"}, ...} after calling the Hue API """
+        groups = requests.get(self.groups_endpoint).json()
+        ids_from_room = {}
+
+        for key, value in groups.iteritems():
+            group = value
+            if group.get("name") is not None:
+                ids_from_room[str.lower(str(group["name"]))] = [str(x) for x in group["lights"]]
+
+        print "[HUE] Available rooms: \n" + ("\n".join(ids_from_room.keys()))
+
+        return ids_from_room
 
 
-	def requestChannelOrangeTV(self, color=None, location=None)
-		"""Turn on Channel OrangeTV in [location] with [color] color."""
-		orangetv_ids=self._get_orangetv_ids_from_room(location)
-
-		state = {"on": True}
-		if color != None:
-			state.update(self._get_orangetv_saturation(color))
-
-		self._post_state_to_ids(state, orangetv_ids)
-
-	def _get_orangetv_saturation(self, color_name):
-		return self.colormap.get(color_name, {'orange': 0, 'sat': 0})
-		   
-	def orangetv_on(self,location=None):
-		self._post_state_to_ids({"on":True},self._get_orangetv_ids_from_room(location))
-		print("Turn on")
-	def orangetv_off(self,location):
-		self._post_state_to_ids({"on":False},self._get_orangetv_ids_from_room(location))
-		print("Turn off")        
-
-	def _post_state_to_ids(self, params, orangetv_ids):
-		"""Post a state update to specyfied OrangeTV."""
-		try:
-			for orangetv_id in orangetv_ids:
-				self._post_state(params, orangetv_id)
-				time.sleep(0.2)
-		except Exception as e:
-			return
-	def _post_state(self, params, orangetv_id):
-		"""Post a state update to a given orangetv.
-
-		:param params: OrangeTV request parameters.
-		:param orangetv_id: OrangeTV ID.
-		"""
-
-		if (orangetv_id is None) or (params is None):
-			return
-		print("[Orange] Setting State for OrangeTV "+ str(orangetv_id)+ ": "+str(params))
-
-		try:
-			url= "{}/{}/state".format(self.orangetv_endpoint, orangetv_id)
-			request.put(url, data=json.dumps(params), headers=None)
-		except Exception as e:
-			print("[Orange] Request timeout.")
-			pass
-
-	def _get_all_orangetv(self):
-		"""Return all orangetv"""
-	   orangetv=request.get(self.orangetv_endpoint).json()
-	   return orangetv.keys()
-
-	def _get_orangetv_ids_from_room(self,room):
-		"""Returns the lsit of the orangetv in a [room] or all orangetv_ids if [room] is None"""
-
-		if room is not None:
-			room=room.lower()
-		if room is None or self.orangetv_from_room.get(room) is None:
-			retrun self._get_all_orangetv()
-		
-		return self.orangetv_from_room[room]
-
-	def _get_rooms_orangetv(self):
-		"""Return a dic of OrangeTV"""
-		groups =request.get(self.groups_endpoint).json()
-		ids_from_room={}
-
-
-		for key, value in groups.iteritems():
-			group =value
-			if group.get("class") is not None:
-				ids_from_room[str.lower(str(group["class"]))] = [str(x) for x in group["orange"]]
-		print"[OrangeTV] Available rooms: \n" + ("\n".join(ids_from_room.keys()))
-		return ids_from_room
-
-
-	if _name_=="_main_":
-		ot=OrangeTV()
-		ot.orangetv_on("Bedroom")
-		print ot._get_all_orangetv()
+if __name__ == "__main__":
+    sh = OrangeTv()
+    # sh.light_on_set("gold", 42, "Bedroom")
+    # sh.light_on_set("gold", 42, "Office")
+    sh.orangetv_on_set("gold", 250, "Bedroom")
+    # sh.light_on_set("red", 150)
+    # sh.light_on_set(None, 200)
+    print sh._get_all_lights()
